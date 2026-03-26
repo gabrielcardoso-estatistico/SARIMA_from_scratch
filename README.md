@@ -60,4 +60,5 @@ Demonstrar:
 Sem uso de bibliotecas prontas de forecasting (tipo statsmodels) — tudo implementado manualmente.
 
 ---
+![SARIMA_from_scratch](https://raw.githubusercontent.com/gabrielcardoso-estatistico/SARIMA_from_scratch/refs/heads/main/Captura%20de%20tela%202026-03-26%20081055.png)
 
