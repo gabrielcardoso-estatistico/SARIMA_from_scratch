@@ -1,0 +1,482 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>Análise de Séries Temporais — SARIMA(1,1,1)(1,1,1)₁₂</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com"/>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;800&family=Figtree:ital,wght@0,300;0,400;0,500;0,600;1,400&display=swap" rel="stylesheet"/>
+<style>
+:root {
+  --bg:        #f4f1ec;
+  --paper:     #ffffff;
+  --paper2:    #faf9f7;
+  --border:    #e5e0d8;
+  --border2:   #cec8bd;
+  --ink:       #18150f;
+  --ink2:      #3a3528;
+  --muted:     #8f8779;
+  --muted2:    #bdb6aa;
+  --teal:      #0c7a6c;
+  --teal-lt:   #e4f4f1;
+  --amber:     #c27a10;
+  --amber-lt:  #fdf3e0;
+  --red:       #be3a2d;
+  --red-lt:    #fce9e7;
+  --blue:      #1955a3;
+  --blue-lt:   #e6eefb;
+  --r:         12px;
+  --shadow:    0 1px 2px rgba(0,0,0,.05), 0 4px 18px rgba(0,0,0,.06);
+}
+*, *::before, *::after { box-sizing:border-box; margin:0; padding:0; }
+body {
+  font-family: "Figtree", sans-serif;
+  background: var(--bg);
+  color: var(--ink);
+  padding: 40px 48px 64px;
+  min-height: 100vh;
+}
+.wrapper { max-width: 1380px; margin: 0 auto; }
+
+/* ── Header ── */
+header {
+  display: flex; align-items: flex-end; justify-content: space-between;
+  border-bottom: 2.5px solid var(--ink);
+  padding-bottom: 18px; margin-bottom: 32px;
+  gap: 24px;
+}
+.hd-left h1 {
+  font-family:"Playfair Display",serif;
+  font-size:30px; font-weight:800; letter-spacing:-.4px; line-height:1.1;
+}
+.hd-left p { font-size:12.5px; color:var(--muted); margin-top:5px; }
+.model-pill {
+  background:var(--ink); color:#fff;
+  font-size:10.5px; font-weight:600; letter-spacing:1px;
+  text-transform:uppercase; padding:6px 15px; border-radius:100px;
+  white-space:nowrap;
+}
+
+/* ── KPI strip ── */
+.kpi-strip {
+  display:grid; grid-template-columns:repeat(5,1fr); gap:13px;
+  margin-bottom:22px;
+}
+.kpi {
+  background:var(--paper); border:1px solid var(--border);
+  border-radius:var(--r); padding:18px 16px;
+  box-shadow:var(--shadow);
+}
+.kpi-lbl { font-size:9.5px; font-weight:600; letter-spacing:1.2px;
+  text-transform:uppercase; color:var(--muted); margin-bottom:8px; }
+.kpi-val {
+  font-family:"Playfair Display",serif; font-size:24px; font-weight:700;
+  color:var(--ink); line-height:1;
+}
+.kpi-sub { font-size:10.5px; color:var(--muted); margin-top:5px; }
+.chip {
+  display:inline-block; padding:2px 9px; border-radius:100px;
+  font-size:9.5px; font-weight:600; margin-top:8px;
+}
+.ct { background:var(--teal-lt); color:var(--teal); }
+.ca { background:var(--amber-lt); color:var(--amber); }
+.cb { background:var(--blue-lt); color:var(--blue); }
+.cr { background:var(--red-lt); color:var(--red); }
+
+/* ── Grid layout ── */
+.row { display:grid; gap:14px; margin-bottom:14px; }
+.r-main   { grid-template-columns:2.2fr 1fr; }
+.r-three  { grid-template-columns:1fr 1fr 1fr; }
+.r-two    { grid-template-columns:1.5fr 1fr; }
+
+.card {
+  background:var(--paper); border:1px solid var(--border);
+  border-radius:var(--r); padding:20px 22px;
+  box-shadow:var(--shadow);
+}
+.ch {
+  display:flex; align-items:flex-start; justify-content:space-between;
+  margin-bottom:16px; gap:12px;
+}
+.ct-title {
+  font-family:"Playfair Display",serif; font-size:15px;
+  font-weight:700; color:var(--ink);
+}
+.ct-sub { font-size:10.5px; color:var(--muted); margin-top:3px; }
+.tag {
+  font-size:9.5px; font-weight:600; letter-spacing:.7px;
+  text-transform:uppercase; color:var(--muted2);
+  background:var(--bg); border:1px solid var(--border2);
+  padding:3px 9px; border-radius:6px; white-space:nowrap; flex-shrink:0;
+}
+
+/* ── Legend ── */
+.legend { display:flex; gap:16px; flex-wrap:wrap; margin-top:3px; }
+.li { display:flex; align-items:center; gap:6px;
+  font-size:10.5px; color:var(--muted); }
+.lbar { width:18px; height:3px; border-radius:2px; }
+.ldash { width:18px; height:0; border-top:2px dashed currentColor; }
+
+/* ── Metrics table ── */
+.mt { width:100%; border-collapse:collapse; }
+.mt tr+tr { border-top:1px solid var(--border); }
+.mt td { padding:9px 0; font-size:12px; color:var(--ink2); vertical-align:middle; }
+.mt td:last-child {
+  text-align:right; font-weight:600; font-size:17px;
+  font-family:"Playfair Display",serif; color:var(--ink);
+}
+.mt .good td:last-child { color:var(--teal); }
+.mt .warn td:last-child { color:var(--amber); }
+
+/* ── ACF ── */
+.acf-outer { display:flex; flex-direction:column; gap:0; }
+.acf-wrap {
+  display:flex; align-items:flex-end; gap:3.5px; height:84px;
+}
+.acf-b {
+  flex:1; border-radius:3px 3px 0 0; min-height:2px;
+  cursor:default; transition:opacity .15s;
+}
+.acf-b:hover { opacity:.7; }
+.acf-zero { width:100%; height:1px; background:var(--border2); margin-top:3px; }
+.acf-xlbl {
+  display:flex; justify-content:space-between;
+  font-size:9px; color:var(--muted2); margin-top:5px; padding:0 1px;
+}
+.acf-note {
+  font-size:10.5px; color:var(--muted); margin-top:12px; line-height:1.6;
+}
+
+/* ── Insights ── */
+.ins-list { display:flex; flex-direction:column; gap:9px; }
+.ins {
+  display:flex; gap:11px; align-items:flex-start;
+  padding:11px 13px; background:var(--paper2);
+  border:1px solid var(--border); border-radius:10px;
+  font-size:11.5px; color:var(--ink2); line-height:1.55;
+}
+.ins-icon { font-size:15px; flex-shrink:0; margin-top:1px; }
+.ins strong { color:var(--ink); }
+
+/* ── Separator ── */
+.divider {
+  font-size:10px; font-weight:600; letter-spacing:1.5px;
+  text-transform:uppercase; color:var(--muted2);
+  display:flex; align-items:center; gap:12px; margin:6px 0 14px;
+}
+.divider::before,.divider::after {
+  content:""; flex:1; height:1px; background:var(--border);
+}
+
+@media(max-width:1100px) {
+  .kpi-strip,.r-three { grid-template-columns:repeat(2,1fr); }
+  .r-main,.r-two { grid-template-columns:1fr; }
+}
+@media(max-width:600px) {
+  body { padding:20px 16px; }
+  .kpi-strip { grid-template-columns:1fr 1fr; }
+  header { flex-direction:column; align-items:flex-start; }
+}
+</style>
+</head>
+<body>
+<div class="wrapper">
+
+<!-- Header -->
+<header>
+  <div class="hd-left">
+    <h1>Análise de Séries Temporais</h1>
+    <p>Receita Mensal &nbsp;·&nbsp; Jan/2018 – Dez/2023 &nbsp;·&nbsp; Previsão 2024 &nbsp;·&nbsp; 72 observações &nbsp;·&nbsp; 26/03/2026 12:04</p>
+  </div>
+  <span class="model-pill">SARIMA(1,1,1)(1,1,1)₁₂</span>
+</header>
+
+<!-- KPIs -->
+<div class="kpi-strip">
+  <div class="kpi">
+    <div class="kpi-lbl">Última Receita</div>
+    <div class="kpi-val">R$ 168k</div>
+    <div class="kpi-sub">Dez/2023</div>
+    <span class="chip ct">Observado</span>
+  </div>
+  <div class="kpi">
+    <div class="kpi-lbl">Próximo mês</div>
+    <div class="kpi-val">R$ 114k</div>
+    <div class="kpi-sub">Jan/2024</div>
+    <span class="chip cb">Forecast</span>
+  </div>
+  <div class="kpi">
+    <div class="kpi-lbl">Dez/2024</div>
+    <div class="kpi-val">R$ 196k</div>
+    <div class="kpi-sub">Fim do horizonte</div>
+    <span class="chip cb">Forecast</span>
+  </div>
+  <div class="kpi">
+    <div class="kpi-lbl">MAPE</div>
+    <div class="kpi-val">5.98%</div>
+    <div class="kpi-sub">Erro % médio absoluto</div>
+    <span class="chip ct">Ótimo</span>
+  </div>
+  <div class="kpi">
+    <div class="kpi-lbl">R² ajuste</div>
+    <div class="kpi-val">0.926</div>
+    <div class="kpi-sub">Coef. determinação</div>
+    <span class="chip ct">Excelente</span>
+  </div>
+</div>
+
+<!-- Row 1: Main chart + ACF -->
+<div class="row r-main">
+
+  <div class="card">
+    <div class="ch">
+      <div>
+        <div class="ct-title">Série Histórica · Ajuste · Previsão 2024</div>
+        <div class="ct-sub">Observado, fitted values e forecast com IC 95%</div>
+      </div>
+      <div class="legend">
+        <div class="li"><div class="lbar" style="background:var(--ink)"></div>Observado</div>
+        <div class="li" style="color:var(--teal)"><div class="ldash"></div>Ajustado</div>
+        <div class="li"><div class="lbar" style="background:var(--blue)"></div>Previsão</div>
+      </div>
+    </div>
+    <canvas id="mainChart" height="230"></canvas>
+  </div>
+
+  <div class="card">
+    <div class="ch">
+      <div>
+        <div class="ct-title">Autocorrelação (ACF)</div>
+        <div class="ct-sub">Lags 1–24 · seleção do modelo</div>
+      </div>
+      <span class="tag">Sazonal S=12</span>
+    </div>
+    <div class="acf-outer">
+      <div class="acf-wrap" id="acfBars"></div>
+      <div class="acf-zero"></div>
+      <div class="acf-xlbl">
+        <span>1</span><span>6</span><span>12</span><span>18</span><span>24</span>
+      </div>
+    </div>
+    <p class="acf-note">
+      Pico significativo no <strong>lag 12</strong> (ρ = 0.586) confirma
+      sazonalidade anual → modelo <strong>SARIMA(1,1,1)(1,1,1)₁₂</strong> selecionado automaticamente.
+    </p>
+  </div>
+
+</div>
+
+<div class="divider">Decomposição da Série</div>
+
+<!-- Row 2: Decomposição -->
+<div class="row r-three">
+  <div class="card">
+    <div class="ch">
+      <div><div class="ct-title">Tendência</div><div class="ct-sub">Média móvel 12 períodos</div></div>
+      <span class="tag">Trend</span>
+    </div>
+    <canvas id="trendChart" height="140"></canvas>
+  </div>
+  <div class="card">
+    <div class="ch">
+      <div><div class="ct-title">Componente Sazonal</div><div class="ct-sub">y − tendência</div></div>
+      <span class="tag">Seasonal</span>
+    </div>
+    <canvas id="seasonChart" height="140"></canvas>
+  </div>
+  <div class="card">
+    <div class="ch">
+      <div><div class="ct-title">Resíduos do Modelo</div><div class="ct-sub">y − ŷ (ruído branco ideal)</div></div>
+      <span class="tag">Residuals</span>
+    </div>
+    <canvas id="residChart" height="140"></canvas>
+  </div>
+</div>
+
+<div class="divider">Diagnóstico & Interpretação</div>
+
+<!-- Row 3: Métricas + Insights -->
+<div class="row r-two">
+  <div class="card">
+    <div class="ch">
+      <div><div class="ct-title">Parâmetros & Métricas</div><div class="ct-sub">SARIMA(1,1,1)(1,1,1)₁₂ · ajuste in-sample</div></div>
+    </div>
+    <table class="mt">
+      <tr class="good">
+        <td>MAPE — Erro Percentual Médio Absoluto</td>
+        <td>5.98%</td>
+      </tr>
+      <tr><td>MAE — Erro Absoluto Médio</td><td>R$ 4,455</td></tr>
+      <tr><td>RMSE — Raiz do Erro Quadrático Médio</td><td>R$ 7,259</td></tr>
+      <tr class="good">
+        <td>R² — Coeficiente de Determinação</td>
+        <td>0.9259</td>
+      </tr>
+      <tr><td>σ resíduos — Desvio Padrão</td><td>R$ 7,196</td></tr>
+      <tr><td>Coef. AR(1) — φ</td><td>0.8771</td></tr>
+      <tr><td>Coef. MA(1) — θ</td><td>-0.7203</td></tr>
+      <tr><td>Total observações</td><td>72 meses</td></tr>
+      <tr><td>Horizonte de previsão</td><td>12 meses</td></tr>
+      <tr><td>Receita projetada 2024</td><td>R$ 1728k</td></tr>
+    </table>
+  </div>
+
+  <div class="card">
+    <div class="ch">
+      <div><div class="ct-title">Insights Automáticos</div><div class="ct-sub">Interpretação estatística dos resultados</div></div>
+    </div>
+    <div class="ins-list">
+      <div class="ins">
+        <div class="ins-icon">📈</div>
+        <div>Série exibe <strong>tendência de crescimento consistente</strong> ao longo de 6 anos, com aceleração notável a partir de 2021 pós-recuperação pandêmica.</div>
+      </div>
+      <div class="ins">
+        <div class="ins-icon">🔄</div>
+        <div><strong>Sazonalidade anual confirmada</strong>: ACF no lag 12 = 0.586 — pico recorrente em <strong>Dezembro</strong> (+20–35% vs média mensal), típico de varejo/B2C.</div>
+      </div>
+      <div class="ins">
+        <div class="ins-icon">⚠️</div>
+        <div><strong>Anomalia em Mar–Abr/2020</strong>: queda de ~45% detectada (COVID-19). O modelo captura a recuperação em U com boa aderência (R² = 0.9259).</div>
+      </div>
+      <div class="ins">
+        <div class="ins-icon">🎯</div>
+        <div>MAPE de <strong>5.98%</strong> classifica a previsão como <em>excelente</em> para planejamento financeiro e orçamentário.</div>
+      </div>
+      <div class="ins">
+        <div class="ins-icon">🔮</div>
+        <div>Projeção 2024 indica crescimento de <strong>≈22.0%</strong> sobre 2023 — faixa plausível dado o histórico de expansão composta.</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+</div><!-- /wrapper -->
+
+<script>
+const D = {"labels_hist": ["Jan/18", "Feb/18", "Mar/18", "Apr/18", "May/18", "Jun/18", "Jul/18", "Aug/18", "Sep/18", "Oct/18", "Nov/18", "Dec/18", "Jan/19", "Feb/19", "Mar/19", "Apr/19", "May/19", "Jun/19", "Jul/19", "Aug/19", "Sep/19", "Oct/19", "Nov/19", "Dec/19", "Jan/20", "Feb/20", "Mar/20", "Apr/20", "May/20", "Jun/20", "Jul/20", "Aug/20", "Sep/20", "Oct/20", "Nov/20", "Dec/20", "Jan/21", "Feb/21", "Mar/21", "Apr/21", "May/21", "Jun/21", "Jul/21", "Aug/21", "Sep/21", "Oct/21", "Nov/21", "Dec/21", "Jan/22", "Feb/22", "Mar/22", "Apr/22", "May/22", "Jun/22", "Jul/22", "Aug/22", "Sep/22", "Oct/22", "Nov/22", "Dec/22", "Jan/23", "Feb/23", "Mar/23", "Apr/23", "May/23", "Jun/23", "Jul/23", "Aug/23", "Sep/23", "Oct/23", "Nov/23", "Dec/23"], "labels_fc": ["Jan/24", "Feb/24", "Mar/24", "Apr/24", "May/24", "Jun/24", "Jul/24", "Aug/24", "Sep/24", "Oct/24", "Nov/24", "Dec/24"], "y": [52400.0, 49200.0, 58700.0, 61300.0, 67800.0, 72400.0, 69100.0, 74300.0, 71200.0, 78900.0, 85600.0, 102400.0, 58900.0, 55700.0, 64300.0, 68200.0, 75400.0, 80100.0, 76300.0, 82700.0, 79400.0, 86200.0, 93800.0, 115200.0, 61300.0, 42100.0, 38700.0, 45200.0, 52800.0, 67300.0, 71200.0, 76800.0, 73100.0, 80200.0, 87900.0, 98400.0, 68700.0, 65200.0, 74800.0, 79300.0, 86200.0, 91700.0, 88400.0, 95200.0, 91800.0, 99700.0, 108300.0, 129600.0, 79200.0, 74800.0, 85300.0, 90200.0, 98700.0, 104200.0, 100800.0, 108400.0, 104900.0, 113200.0, 122800.0, 146700.0, 91400.0, 86900.0, 98200.0, 104700.0, 113800.0, 120300.0, 116200.0, 124800.0, 120400.0, 130200.0, 141600.0, 168900.0], "fitted": [52400.0, 49200.0, 58700.0, 61300.0, 67800.0, 72400.0, 69100.0, 74300.0, 71200.0, 78900.0, 85600.0, 102400.0, 58900.0, 55700.0, 64300.0, 68200.0, 75400.0, 80100.0, 76300.0, 82700.0, 79400.0, 86200.0, 93800.0, 115200.0, 61300.0, 48978.54, 41621.45, 34179.5, 46742.52, 53487.75, 62146.55, 77832.37, 73541.95, 79867.5, 87823.63, 109332.7, 42814.6, 52080.22, 66120.0, 86449.8, 90295.73, 103036.12, 95871.6, 93066.78, 91015.96, 98598.39, 107308.19, 118874.97, 101647.27, 73713.09, 82827.76, 88808.66, 96448.67, 103981.71, 100742.77, 107471.07, 105032.57, 112807.78, 121868.32, 144305.99, 96856.01, 86632.24, 97119.43, 103023.34, 113395.64, 119534.98, 117226.04, 123925.09, 121546.88, 128736.72, 140061.62, 165970.65], "fc_vals": [114472.07, 110736.93, 122707.76, 129796.12, 139412.15, 146364.75, 142661.7, 151609.85, 147515.2, 157583.02, 169217.9, 196723.92], "fc_lower": [100366.0, 90787.94, 98275.33, 101583.98, 107870.02, 111812.07, 105340.55, 111711.86, 105196.99, 112975.71, 122433.36, 147859.06], "fc_upper": [128578.14, 130685.93, 147140.19, 158008.26, 170954.29, 180917.42, 179982.85, 191507.84, 189833.41, 202190.32, 216002.44, 245588.78], "trend": [61557.14, 63150.0, 64044.44, 65530.0, 67354.55, 70275.0, 69400.0, 69653.85, 70815.38, 71546.15, 72630.77, 73576.92, 73876.92, 74923.08, 75315.38, 76469.23, 77615.38, 79892.31, 76730.77, 75438.46, 74130.77, 72661.54, 71476.92, 70853.85, 70169.23, 70207.69, 69469.23, 69530.77, 69661.54, 70015.38, 66438.46, 66738.46, 69253.85, 72376.92, 75530.77, 78523.08, 80146.15, 81992.31, 83146.15, 85192.31, 87353.85, 90561.54, 89084.62, 89553.85, 91100.0, 92284.62, 93776.92, 95161.54, 95861.54, 97400.0, 98146.15, 99792.31, 101569.23, 104523.08, 101584.62, 102176.92, 103976.92, 105469.23, 107284.62, 108946.15, 109869.23, 111715.38, 112638.46, 114584.62, 116769.23, 120315.38, 118116.67, 120545.45, 123910.0, 126766.67, 129525.0, 131771.43], "seasonal": [-9157.14, -13950.0, -5344.44, -4230.0, 445.45, 2125.0, -300.0, 4646.15, 384.62, 7353.85, 12969.23, 28823.08, -14976.92, -19223.08, -11015.38, -8269.23, -2215.38, 207.69, -430.77, 7261.54, 5269.23, 13538.46, 22323.08, 44346.15, -8869.23, -28107.69, -30769.23, -24330.77, -16861.54, -2715.38, 4761.54, 10061.54, 3846.15, 7823.08, 12369.23, 19876.92, -11446.15, -16792.31, -8346.15, -5892.31, -1153.85, 1138.46, -684.62, 5646.15, 700.0, 7415.38, 14523.08, 34438.46, -16661.54, -22600.0, -12846.15, -9592.31, -2869.23, -323.08, -784.62, 6223.08, 923.08, 7730.77, 15515.38, 37753.85, -18469.23, -24815.38, -14438.46, -9884.62, -2969.23, -15.38, -1916.67, 4254.55, -3510.0, 3433.33, 12075.0, 37128.57], "resid": [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, -6878.54, -2921.45, 11020.5, 6057.48, 13812.25, 9053.45, -1032.37, -441.95, 332.5, 76.37, -10932.7, 25885.4, 13119.78, 8680.0, -7149.8, -4095.73, -11336.12, -7471.6, 2133.22, 784.04, 1101.61, 991.81, 10725.03, -22447.27, 1086.91, 2472.24, 1391.34, 2251.33, 218.29, 57.23, 928.93, -132.57, 392.22, 931.68, 2394.01, -5456.01, 267.76, 1080.57, 1676.66, 404.36, 765.02, -1026.04, 874.91, -1146.88, 1463.28, 1538.38, 2929.35], "acf": [0.7331, 0.5369, 0.4222, 0.387, 0.3491, 0.3584, 0.2955, 0.2638, 0.2351, 0.2707, 0.4001, 0.5861, 0.3799, 0.2287, 0.1406, 0.1169, 0.088, 0.094, 0.0445, 0.0263, 0.0127, 0.0533, 0.1698, 0.3241], "model": "SARIMA(1,1,1)(1,1,1)\u2081\u2082", "is_seasonal": true, "metrics": {"mae": 4455.0, "mape": 5.98, "rmse": 7259.0, "r2": 0.9259}, "params": {"ar": 0.8771, "ma": -0.7203, "sigma": 7196.97}, "summary": {"total_obs": 72, "forecast_steps": 12, "seasonal_lag": 12, "last_val": 168900, "fc_next": 114472, "fc_end": 196723, "fc_total": 1728801, "growth_pct": 22.0}};
+const fmt = v => 'R$ ' + (v/1000).toFixed(0) + 'k';
+const tip = {
+  backgroundColor:'#fff', titleColor:'#18150f', bodyColor:'#8f8779',
+  borderColor:'#e5e0d8', borderWidth:1, padding:11, cornerRadius:9,
+};
+const gridColor = '#ede8e0';
+const axOpts = () => ({
+  x: { grid:{ color:gridColor }, ticks:{ font:{ size:10,family:'Figtree' }, maxTicksLimit:10 } },
+  y: { grid:{ color:gridColor }, ticks:{ font:{ size:10 }, callback: fmt } },
+});
+
+// ── Main Chart ────────────────────────────────────────────────────────────────
+const mCtx = document.getElementById('mainChart').getContext('2d');
+const gradIC = mCtx.createLinearGradient(0,0,0,300);
+gradIC.addColorStop(0,'rgba(25,85,163,.12)');
+gradIC.addColorStop(1,'rgba(25,85,163,0)');
+
+const allLbls  = [...D.labels_hist, ...D.labels_fc];
+const obsData  = [...D.y,      ...Array(D.labels_fc.length).fill(null)];
+const fitData  = [...D.fitted, ...Array(D.labels_fc.length).fill(null)];
+// connect last fitted → first forecast
+const fcLine   = [...Array(D.labels_hist.length-1).fill(null),
+                   D.fitted[D.fitted.length-1], ...D.fc_vals];
+const fcUp     = [...Array(D.labels_hist.length-1).fill(null),
+                   D.fitted[D.fitted.length-1], ...D.fc_upper];
+const fcLo     = [...Array(D.labels_hist.length-1).fill(null),
+                   D.fitted[D.fitted.length-1], ...D.fc_lower];
+
+new Chart(mCtx, {
+  type:'line',
+  data:{
+    labels: allLbls,
+    datasets:[
+      // IC upper (fill target invisible)
+      { data:fcUp, borderWidth:0, pointRadius:0, fill:false,
+         backgroundColor:'transparent', borderColor:'transparent' },
+      // IC band
+      { data:fcLo, borderWidth:0, pointRadius:0,
+         fill:'-1', backgroundColor:'rgba(25,85,163,.09)',
+         borderColor:'transparent' },
+      // Observed
+      { label:'Observado', data:obsData,
+         borderColor:'#18150f', borderWidth:2.5,
+         pointRadius:0, pointHoverRadius:5, fill:false, tension:0.25 },
+      // Fitted
+      { label:'Ajustado', data:fitData,
+         borderColor:'#0c7a6c', borderWidth:1.8, borderDash:[5,4],
+         pointRadius:0, fill:false, tension:0.3 },
+      // Forecast
+      { label:'Previsão', data:fcLine,
+         borderColor:'#1955a3', borderWidth:2.5,
+         pointRadius:0, pointHoverRadius:5, fill:false, tension:0.3 },
+    ],
+  },
+  options:{
+    responsive:true,
+    interaction:{ mode:'index', intersect:false },
+    plugins:{ legend:{display:false},
+      tooltip:{ ...tip, callbacks:{ label: ctx =>
+        ctx.dataset.label ? ctx.dataset.label + ': ' + fmt(ctx.raw) : null
+      } } },
+    scales: axOpts(),
+  },
+});
+
+// ── ACF bars ────────────────────────────────────────────────────────────────
+const acfContainer = document.getElementById('acfBars');
+const maxA = Math.max(...D.acf.map(Math.abs));
+D.acf.forEach((v,i) => {
+  const bar = document.createElement('div');
+  bar.className = 'acf-b';
+  const pct = Math.abs(v)/maxA*100;
+  const isSeason = (i+1) === D.summary.seasonal_lag;
+  bar.style.height = pct + '%';
+  bar.style.background = isSeason ? '#c27a10' : (v>0 ? '#0c7a6c' : '#be3a2d');
+  bar.style.opacity = isSeason ? '1' : (Math.abs(v)>0.3 ? '0.75' : '0.4');
+  bar.title = `Lag ${i+1}: ${v.toFixed(3)}`;
+  acfContainer.appendChild(bar);
+});
+
+// ── Trend ────────────────────────────────────────────────────────────────────
+const tCtx = document.getElementById('trendChart').getContext('2d');
+const gTr = tCtx.createLinearGradient(0,0,0,160);
+gTr.addColorStop(0,'rgba(12,122,108,.15)');
+gTr.addColorStop(1,'rgba(12,122,108,0)');
+new Chart(tCtx, {
+  type:'line',
+  data:{ labels:D.labels_hist,
+    datasets:[{ data:D.trend, borderColor:'#0c7a6c', borderWidth:2.2,
+      pointRadius:0, fill:true, backgroundColor:gTr, tension:0.4 }]},
+  options:{ responsive:true,
+    plugins:{ legend:{display:false}, tooltip:tip },
+    scales: axOpts() },
+});
+
+// ── Seasonal ─────────────────────────────────────────────────────────────────
+const sCtx = document.getElementById('seasonChart').getContext('2d');
+new Chart(sCtx, {
+  type:'bar',
+  data:{ labels:D.labels_hist,
+    datasets:[{ data:D.seasonal,
+      backgroundColor: D.seasonal.map(v => v>=0?'rgba(12,122,108,.35)':'rgba(190,58,45,.3)'),
+      borderColor:     D.seasonal.map(v => v>=0?'#0c7a6c':'#be3a2d'),
+      borderWidth:1, borderRadius:2 }]},
+  options:{ responsive:true,
+    plugins:{ legend:{display:false}, tooltip:tip },
+    scales: axOpts() },
+});
+
+// ── Residuals ────────────────────────────────────────────────────────────────
+const rCtx = document.getElementById('residChart').getContext('2d');
+new Chart(rCtx, {
+  type:'bar',
+  data:{ labels:D.labels_hist,
+    datasets:[{ data:D.resid,
+      backgroundColor: D.resid.map(v => v>=0?'rgba(25,85,163,.35)':'rgba(190,58,45,.3)'),
+      borderColor:     D.resid.map(v => v>=0?'#1955a3':'#be3a2d'),
+      borderWidth:1, borderRadius:2 }]},
+  options:{ responsive:true,
+    plugins:{ legend:{display:false}, tooltip:tip },
+    scales: axOpts() },
+});
+</script>
+</body>
+</html>
